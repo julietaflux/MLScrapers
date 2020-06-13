@@ -4,12 +4,15 @@ using HtmlAgilityPack;
 using ScrapySharp.Extensions;
 using ScrapySharp.Network;
 using Serilog;
+using System.Linq;
 
 namespace MLScraper
 {
     class Program
     {
         static ScrapingBrowser _scrapingBrowser = new ScrapingBrowser();
+        static List<string> mainCategories = new List<string>();
+        static List<string> subCategories = new List<string>();
         static void Main(string[] args)
         {
             var log = new LoggerConfiguration()
@@ -19,7 +22,10 @@ namespace MLScraper
             log.Information("Init");
             log.Information("Hello fellow MercadoTracker!");
             log.Information("Getting main categories links...");
-            var mainCategories = GetMainCategoriesLinks("https://www.mercadolibre.com.ar/categorias#menu=categories");
+
+            mainCategories = GetMainCategoriesLinks("https://www.mercadolibre.com.ar/categorias#menu=categories");
+
+            log.Information("Sub category count:    {MainCategoriesCount}", mainCategories.Count);
 
             foreach (var cat in mainCategories)
             {
@@ -27,11 +33,17 @@ namespace MLScraper
             }
 
             log.Information("Getting sub categories links...");
-            var subCategories = GetSubCategoriesLinks("https://home.mercadolibre.com.ar/computacion/#menu=categories");
 
-            foreach (var cat in subCategories)
+            foreach (var mainCategory in mainCategories)
             {
-                log.Information(cat);
+                var res = GetSubCategoriesLinks(mainCategory);
+                subCategories.Concat(res);
+
+                log.Information("Sub category count:    {ResCount}", res.Count);
+                foreach (var subCategory in res)
+                {
+                    log.Information(subCategory);
+                }
             }
 
             log.Information("End");
@@ -41,21 +53,14 @@ namespace MLScraper
         {
             var mainCategoriesLinks = new List<string>();
             var html = GetHtml(url);
-            var links = html.CssSelect("li");
 
-            foreach (var link in links)
+            if (html != null)
             {
-                var mainCategoriesNodes = link.SelectNodes("//li[contains(@class, 'categories__item')]");
+                var links = html.CssSelect("h2.categories__title > a");
 
-                if (mainCategoriesNodes.Count > 0)
+                foreach (var link in links)
                 {
-                    foreach (var node in mainCategoriesNodes)
-                    {
-                        var anchorElement = node.SelectNodes("a")[0];
-
-                        mainCategoriesLinks.Add(anchorElement.Attributes["href"].Value);
-                    }
-
+                    mainCategoriesLinks.Add(link.Attributes["href"].Value);
                 }
             }
             return mainCategoriesLinks;
@@ -65,29 +70,32 @@ namespace MLScraper
         {
             var subCategoriesLinks = new List<string>();
             var html = GetHtml(url);
-            var links = html.CssSelect("li");
 
-            foreach (var link in links)
+            if (html != null)
             {
-                var subCategoriesNodes = link.SelectNodes("//li[contains(@class, 'category')]");
+                var links = html.CssSelect("li.category > a");
 
-                if (subCategoriesNodes.Count > 0)
+                foreach (var link in links)
                 {
-                    foreach (var node in subCategoriesNodes)
-                    {
-                        var anchorElement = node.SelectNodes("a")[0];
-
-                        subCategoriesLinks.Add(anchorElement.Attributes["href"].Value);
-                    }
-
+                    subCategoriesLinks.Add(link.Attributes["href"].Value);
                 }
             }
+
             return subCategoriesLinks;
         }
         static HtmlNode GetHtml(string url)
         {
-            WebPage webPage = _scrapingBrowser.NavigateToPage(new Uri(url));
-            return webPage.Html;
+            try
+            {
+                WebPage webPage = _scrapingBrowser.NavigateToPage(new Uri(url));
+                return webPage.Html;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("An error ocurred while trying to get the page: {Ex}", ex);
+            }
+
+            return null;
         }
     }
 }
