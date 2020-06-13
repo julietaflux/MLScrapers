@@ -11,47 +11,51 @@ namespace MLScraper
     class Program
     {
         static ScrapingBrowser _scrapingBrowser = new ScrapingBrowser();
-        static List<string> mainCategories = new List<string>();
-        static List<string> subCategories = new List<string>();
+        static List<(string, string)> mainCategories = new List<(string, string)>();
+        static List<(string, string)> subCategories = new List<(string, string)>();
         static void Main(string[] args)
         {
-            var log = new LoggerConfiguration()
-            .WriteTo.Console()
-            .CreateLogger();
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .CreateLogger();
 
-            log.Information("Init");
-            log.Information("Hello fellow MercadoTracker!");
-            log.Information("Getting main categories links...");
+            Log.Information("Init");
+            InitScraping();
+            Log.Information("End");
+        }
 
+        static void InitScraping()
+        {
             mainCategories = GetMainCategoriesLinks("https://www.mercadolibre.com.ar/categorias#menu=categories");
 
-            log.Information("Sub category count:    {MainCategoriesCount}", mainCategories.Count);
+            Log.Information("Sub category count:    {MainCategoriesCount}", mainCategories.Count);
 
-            foreach (var cat in mainCategories)
+            foreach (var tuple in mainCategories)
             {
-                log.Information(cat);
+                Log.Information(tuple.Item1);
             }
 
-            log.Information("Getting sub categories links...");
+            Log.Information("Getting sub categories links...");
 
-            foreach (var mainCategory in mainCategories)
+            foreach (var tuple in mainCategories)
             {
-                var res = GetSubCategoriesLinks(mainCategory);
+                var res = GetSubCategoriesLinks(tuple.Item1);
                 subCategories.Concat(res);
 
-                log.Information("Sub category count:    {ResCount}", res.Count);
+                Log.Information("{TupleItem2}   ({ResCount} subcategories)", tuple.Item2, res.Count);
+
                 foreach (var subCategory in res)
                 {
-                    log.Information(subCategory);
+                    Log.Information("{SubCategoryItem2}  {SubCategoryItem1}", subCategory.Item2, subCategory.Item1);
                 }
             }
 
-            log.Information("End");
         }
 
-        static List<string> GetMainCategoriesLinks(string url)
+        static List<(string, string)> GetMainCategoriesLinks(string url)
         {
-            var mainCategoriesLinks = new List<string>();
+            var mainCategoriesLinks = new List<(string, string)>();
             var html = GetHtml(url);
 
             if (html != null)
@@ -60,15 +64,15 @@ namespace MLScraper
 
                 foreach (var link in links)
                 {
-                    mainCategoriesLinks.Add(link.Attributes["href"].Value);
+                    mainCategoriesLinks.Add((link.Attributes["href"].Value, link.InnerHtml));
                 }
             }
             return mainCategoriesLinks;
         }
 
-        static List<string> GetSubCategoriesLinks(string url)
+        static List<(string, string)> GetSubCategoriesLinks(string url)
         {
-            var subCategoriesLinks = new List<string>();
+            var subCategoriesLinks = new List<(string, string)>();
             var html = GetHtml(url);
 
             if (html != null)
@@ -77,7 +81,7 @@ namespace MLScraper
 
                 foreach (var link in links)
                 {
-                    subCategoriesLinks.Add(link.Attributes["href"].Value);
+                    subCategoriesLinks.Add((link.Attributes["href"].Value, link.InnerHtml));
                 }
             }
 
