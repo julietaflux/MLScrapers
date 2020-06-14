@@ -4,15 +4,16 @@ using HtmlAgilityPack;
 using ScrapySharp.Extensions;
 using ScrapySharp.Network;
 using Serilog;
-using System.Linq;
+using MLScraper.Models;
+using MLScraper.Helpers;
 
 namespace MLScraper
 {
     class Program
     {
         static ScrapingBrowser _scrapingBrowser = new ScrapingBrowser();
-        static List<(string, string)> mainCategories = new List<(string, string)>();
-        static List<(string, string)> subCategories = new List<(string, string)>();
+        static List<Category> _mainCategories = new List<Category>();
+        static List<Category> _subCategories = new List<Category>();
         static void Main(string[] args)
         {
             Log.Logger = new LoggerConfiguration()
@@ -21,41 +22,47 @@ namespace MLScraper
                 .CreateLogger();
 
             Log.Information("Init");
-            InitScraping();
+            Scrape();
+            WriteToFile();
             Log.Information("End");
         }
 
-        static void InitScraping()
+        static void Scrape()
         {
-            mainCategories = GetMainCategoriesLinks("https://www.mercadolibre.com.ar/categorias#menu=categories");
+            _mainCategories = GetMainCategoriesLinks("https://www.mercadolibre.com.ar/categorias#menu=categories");
 
-            Log.Information("Sub category count:    {MainCategoriesCount}", mainCategories.Count);
+            Log.Information("Sub category count:    {MainCategoriesCount}", _mainCategories.Count);
 
-            foreach (var tuple in mainCategories)
+            foreach (var tuple in _mainCategories)
             {
-                Log.Information(tuple.Item1);
+                Log.Information(tuple.Name);
             }
 
             Log.Information("Getting sub categories links...");
 
-            foreach (var tuple in mainCategories)
+            foreach (var tuple in _mainCategories)
             {
-                var res = GetSubCategoriesLinks(tuple.Item1);
-                subCategories.Concat(res);
+                var res = GetSubCategoriesLinks(tuple.Url);
+                _subCategories.AddRange(res);
 
-                Log.Information("{TupleItem2}   ({ResCount} subcategories)", tuple.Item2, res.Count);
+                Log.Information("{TupleItem2}   ({ResCount} subcategories)", tuple.Name, res.Count);
 
                 foreach (var subCategory in res)
                 {
-                    Log.Information("{SubCategoryItem2}  {SubCategoryItem1}", subCategory.Item2, subCategory.Item1);
+                    Log.Information("{SubCategoryItem2}  {SubCategoryItem1}", subCategory.Name, subCategory.Url);
                 }
             }
-
         }
 
-        static List<(string, string)> GetMainCategoriesLinks(string url)
+        static void WriteToFile()
         {
-            var mainCategoriesLinks = new List<(string, string)>();
+            JSONSerializer.Instance.Serialize(_mainCategories, CategoryTypeEnum.MAINCATEGORIES);
+            JSONSerializer.Instance.Serialize(_subCategories, CategoryTypeEnum.SUBCATEGORIES);
+        }
+
+        static List<Category> GetMainCategoriesLinks(string url)
+        {
+            var mainCategoriesLinks = new List<Category>();
             var html = GetHtml(url);
 
             if (html != null)
@@ -64,15 +71,19 @@ namespace MLScraper
 
                 foreach (var link in links)
                 {
-                    mainCategoriesLinks.Add((link.Attributes["href"].Value, link.InnerHtml));
+                    mainCategoriesLinks.Add(new Category
+                    {
+                        Name = link.InnerHtml,
+                        Url = link.Attributes["href"].Value
+                    });
                 }
             }
             return mainCategoriesLinks;
         }
 
-        static List<(string, string)> GetSubCategoriesLinks(string url)
+        static List<Category> GetSubCategoriesLinks(string url)
         {
-            var subCategoriesLinks = new List<(string, string)>();
+            var subCategoriesLinks = new List<Category>();
             var html = GetHtml(url);
 
             if (html != null)
@@ -81,7 +92,11 @@ namespace MLScraper
 
                 foreach (var link in links)
                 {
-                    subCategoriesLinks.Add((link.Attributes["href"].Value, link.InnerHtml));
+                    subCategoriesLinks.Add(new Category
+                    {
+                        Name = link.InnerHtml,
+                        Url = link.Attributes["href"].Value
+                    });
                 }
             }
 
