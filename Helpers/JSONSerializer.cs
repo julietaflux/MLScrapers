@@ -34,7 +34,7 @@ namespace MLScraper.Helpers
 
             try
             {
-                using (StreamWriter sw = new StreamWriter(string.Format("{0}-{1}.json", CategoryType, DateTime.UtcNow.ToString("yyyy-MM-dd"))))
+                using (StreamWriter sw = new StreamWriter(string.Format("json/{0}-{1}.json", CategoryType, DateTime.UtcNow.ToString("yyyy-MM-dd"))))
                 using (JsonWriter writer = new JsonTextWriter(sw))
                 {
                     serializer.Serialize(writer, categories);
